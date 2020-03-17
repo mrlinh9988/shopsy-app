@@ -1,0 +1,55 @@
+version: "3"
+
+services:
+  nodejs:
+    image: node:latest
+    build: .
+    container_name: nodejs
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/home/node/app
+    depends_on:   
+      - db
+    networks:
+      - app-network
+  db:
+    image: mongo
+    container_name: db
+    restart: unless-stopped
+    ports:
+      - "37017:27017"
+    volumes:
+      - dbdata:/data/db
+    networks:
+      - app-network
+  adminmongo:
+    image: mrvautin/adminmongo
+    ports: 
+      - "1234:1234"
+  redis:
+    container_name: redis
+    hostname: redis
+    image: redis
+    networks:
+      - app-network
+  redis-commander:
+    container_name: redis-commander
+    hostname: redis-commander
+    image: rediscommander/redis-commander:latest
+    restart: always
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+  node_modules:

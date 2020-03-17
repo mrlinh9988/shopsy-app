@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+
+// Dependencies
+const http = require('http');
+const config = require('../config');
+const App = require('../app');
+const mongoose = require('mongoose');
+const redis = require('redis');
+const Sequelize = require('sequelize');
+
+const log = config.logger;
+
+// Sequelize connect
+const sequelize = new Sequelize(config.mysql.options);
+
+sequelize
+  .authenticate()
+  .then(() => {
+    log.info('Successfully connected to MYSQL')
+  })
+  .catch(err => {
+    log.fatal(err);
+    process.exit();
+  });
+config.mysql.client = sequelize;
+
+// Mongoose connect
+mongoose.connect(config.mongodb.dsn, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => {
+    log.info('Successfully connected to Mongodb');
+  });
+
+const redisClient = redis.createClient(config.redis.options);
+redisClient.on('ready', () => {
+  log.info('Successfully connected to Redis');
+});
+config.redis.client = redisClient; // lưu thêm thuộc tính client vào redis trong config/redis
+
+/* Logic to start the application */
+const app = App(config);
+const port = 3000;
+// const port = 3000;
+// app.set('port', port);
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+  const bind = typeof port === 'string'
+    ? `Pipe ${port}`
+    : `Port  ${port}`;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      log.fatal(`${bind} requires elevated privileges`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      log.fatal(`${bind} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+const server = http.createServer(app);
+function onListening() {
+  const addr = server.address();
+  const bind = typeof addr === 'string'
+    ? `pipe ${addr}`
+    : `port ${addr.port}`;
+
+  log.info(`${config.applicationName} listening on ${bind}`);
+}
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
